@@ -5,7 +5,7 @@
 #        where 'n' represents n-gram order (eg. bigram, trigram, etc.)  Default: 2
 #        If no input string is given, it uses cross-validation to test itself
 # License: GPLv.3 (see www.fsf.org)
-# TODO: use command-line arg parser; lint; pep8; rewrite with lstm
+# TODO: reorganize; use command-line arg parser; resolve ISO ID's to names & rewrite guess output; lint; pep8; rewrite with lstm
 
 from __future__ import print_function
 import sys, random, decimal
