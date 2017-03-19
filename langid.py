@@ -171,6 +171,7 @@ def create_model_filename(cmd_args):
     filename = "witch-lang"
     filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
+    filename += "_py-%i" % sys.version_info.major
     filename += ".pkl"
     return filename
 
