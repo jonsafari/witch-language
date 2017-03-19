@@ -21,16 +21,16 @@ tests   = {}
 
 def parse_lang_codes(iso_codes_filename):
     """ Bijective mapping between ISO 639-3 language codes and their (macro-)language name.
-    Eg. codes = {'eng':'English', ... }; codes_rev = {'English': 'eng', ...}
+    Eg. iso_codes = {'eng':'English', ... }; iso_codes_rev = {'English': 'eng', ...}
     """
-    codes = {}
-    codes_rev = {}
+    iso_codes = {}
+    iso_codes_rev = {}
     with open(iso_codes_filename) as code_file:
         for line in code_file:
-            code, lang = line.rstrip().split('\t')
-            codes[code] = lang
-            codes_rev[lang] = code
-    return (codes, codes_rev)
+            iso_code, lang = line.rstrip().split('\t')
+            iso_codes[iso_code] = lang
+            iso_codes_rev[lang] = iso_code
+    return (iso_codes, iso_codes_rev)
 
 
 def ngramize(input, n_order):
@@ -98,8 +98,23 @@ def get_test_probs(input_ngrams, corpus_files):
     return sumprobs
 
 
+def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
+    for prob, lang in sorted_probs[0:max_guesses]:
+        # Strip ".txt" from eng.txt, for example
+        if lang.endswith(".txt"):
+            lang = lang[:-4]
 
-def test(n_order, user_data, corpus_files):
+        # Try to resolve ISO code to language name
+        iso_name = ""
+        try:
+            iso_name += "%s (%s)" % (iso_codes[lang], lang)
+        except:
+            iso_name += "%s" % lang
+
+        print("%s: %g" % (iso_name, prob))
+
+
+def test(n_order, user_data, corpus_files, iso_codes):
     """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
     if user_data:
         ngrams["test"] = ngramize(user_data,n_order)
@@ -110,7 +125,7 @@ def test(n_order, user_data, corpus_files):
         probssort.sort()
         probssort.reverse()
     
-        print(probssort[0:3])
+        format_lang_guesses(probssort, 3, iso_codes)
     
     
     else:
@@ -177,13 +192,13 @@ def main():
     
     random.seed(598383715)
     
-    codes, codes_rev = parse_lang_codes(iso_codes_filename)
+    iso_codes, iso_codes_rev = parse_lang_codes(iso_codes_filename)
     
     print("\nTraining...\n", file=sys.stderr)
     train(n_order, corpus_files)
 
     print("Testing...\n", file=sys.stderr)
-    test(n_order, user_data, corpus_files)
+    test(n_order, user_data, corpus_files, iso_codes)
 
 if __name__ == '__main__':
     main()
