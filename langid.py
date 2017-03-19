@@ -174,18 +174,17 @@ def create_model_filename(cmd_args):
 
 def main():
     """ Identifies language from STDIN. """
-    #nltk.download('udhr2')
     iso_codes_filename = 'lang_codes_iso-639-3.tsv'
     corpus_files = udhr2.fileids()
 
     parser = argparse.ArgumentParser(
         description='Easy massively multilingual language identification')
-    parser.add_argument('--n_order', type=int, default=2,
+    parser.add_argument('-n', '--n_order', type=int, default=2,
                         help='Specify n-gram order (default: %(default)i)')
     parser.add_argument('--smoothing', type=str, default="laplace",
                         #help='Using smoothing technique: {laplace, lidstone, ele, mle, wb, unif}'
                         )
-    parser.add_argument('--testall', type=bool, default=False,
+    parser.add_argument('--testall', action="store_true",
                         help='Test all languages with cross-validation')
     parser.add_argument('--top', type=int, default=10,
                         help='Show top number of guesses (default: %(default)i)')
