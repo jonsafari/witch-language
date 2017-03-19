@@ -10,6 +10,7 @@ from __future__ import print_function
 import sys
 import random
 import argparse
+import pickle
 from nltk.corpus import udhr2
 from nltk import probability
 
@@ -23,6 +24,7 @@ class Model(dict):
         dict.__init__(self)
         self.ngrams = {}
         self.smoothed = {}
+        self.deleted_langs = []
 
 
 def parse_lang_codes(iso_codes_filename):
@@ -50,7 +52,6 @@ def ngramize(text, n_order):
 
 def train(cmd_args, corpus_files, model):
     """ Trains statistical model. """
-    del_list = []
     for lang in corpus_files:
 
         text = udhr2.raw(lang)
@@ -59,7 +60,7 @@ def train(cmd_args, corpus_files, model):
         # Skip empty files, like nku.txt
         if len(text) < 1000:
             #print("skipping pathological file", lang)
-            del_list.append(lang)
+            model.deleted_langs.append(lang)
             continue
 
         model.ngrams[lang] = []
@@ -86,11 +87,6 @@ def train(cmd_args, corpus_files, model):
         #model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(model.ngrams[lang]))
         #model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(model.ngrams[lang]))
 
-
-    # Remove langs having empty or tiny files
-    for lang in del_list:
-        corpus_files.remove(lang)
-    print("Trained on %i languages" % len(corpus_files), file=sys.stderr)
 
 
 def get_test_probs(ngrams_test, corpus_files, model):
@@ -163,6 +159,9 @@ def test(cmd_args, user_data, corpus_files, iso_codes, model):
         print("\nCorrect: At least", str(correct) + "/" + str(len(corpus_files)), "=")
         print(str((100.0*correct) / len(corpus_files))[0:6] + "%")
 
+def create_model_filename(cmd_args):
+    filename = "foobar"
+    return filename
 
 def main():
     """ Identifies language from STDIN. """
@@ -188,10 +187,21 @@ def main():
     random.seed(598383715)
 
     iso_codes, _ = parse_lang_codes(iso_codes_filename)
+    model_filename = create_model_filename(cmd_args)
 
-    print("Training...", file=sys.stderr)
     model = Model()
-    train(cmd_args, corpus_files, model)
+    try:
+        print("Loading model: %s" % model_filename, file=sys.stderr)
+        model = pickle.load(open(model_filename, "rb"))
+    except:
+        print("Existing model not found.  Training...", file=sys.stderr)
+        train(cmd_args, corpus_files, model)
+        pickle.dump(model, open(model_filename, "wb"))
+
+    # Remove langs having empty or tiny files
+    for lang in model.deleted_langs:
+        corpus_files.remove(lang)
+    print("Using %i languages" % len(corpus_files), file=sys.stderr)
 
     test(cmd_args, user_data, corpus_files, iso_codes, model)
 
