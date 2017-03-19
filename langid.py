@@ -14,8 +14,18 @@ from nltk.corpus import udhr2
 from nltk import probability
 
 ngrams = {}
-laplace = {}
 tests = {}
+
+class Model(dict):
+    """ Simple model containing ngrams and smoothed statistical probs.
+    Also allows for easy serialization.
+    """
+    def __init__(self):
+        dict.__init__(self)
+        #self.ngrams = {}
+        self.smoothed = {}
+        #self.tests = {}
+
 
 
 def parse_lang_codes(iso_codes_filename):
@@ -42,7 +52,7 @@ def ngramize(text, n_order):
     return ngrams
 
 
-def train(cmd_args, corpus_files):
+def train(cmd_args, corpus_files, model):
     """ Trains statistical model. """
     del_list = []
     for lang in corpus_files:
@@ -57,7 +67,7 @@ def train(cmd_args, corpus_files):
             continue
 
         ngrams[lang] = []
-        laplace[lang] = []
+        model.smoothed[lang] = []
 
         # Build ngrams for each language in training
         ngrams[lang] = ngramize(text, cmd_args.n_order)
@@ -72,13 +82,13 @@ def train(cmd_args, corpus_files):
 
 
         # Build model based on ngrams for each language in training
-        laplace[lang] = probability.LaplaceProbDist(probability.FreqDist(ngrams[lang]))
-        #laplace[lang] = probability.LidstoneProbDist(probability.FreqDist(ngrams[lang]),0.50)
-        #laplace[lang] = probability.ELEProbDist(probability.FreqDist(ngrams[lang]))
+        model.smoothed[lang] = probability.LaplaceProbDist(probability.FreqDist(ngrams[lang]))
+        #model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(ngrams[lang]),0.50)
+        #model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(ngrams[lang]))
 
-        #laplace[lang] = probability.MLEProbDist(probability.FreqDist(ngrams[lang]))
-        #laplace[lang] = probability.WittenBellProbDist(probability.FreqDist(ngrams[lang]))
-        #laplace[lang] = probability.UniformProbDist(probability.FreqDist(ngrams[lang]))
+        #model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(ngrams[lang]))
+        #model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(ngrams[lang]))
+        #model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(ngrams[lang]))
 
 
     # Remove langs having empty or tiny files
@@ -87,14 +97,14 @@ def train(cmd_args, corpus_files):
     print("Trained on %i languages" % len(corpus_files), file=sys.stderr)
 
 
-def get_test_probs(ngrams_test, corpus_files):
+def get_test_probs(ngrams_test, corpus_files, model):
     """ Get sum of probabilities for ngrams of test data. """
     sumprobs = {}
     for i in ngrams_test:
         for lang in corpus_files:
             try:
-                sumprobs[lang] += probability.LaplaceProbDist.logprob(laplace[lang], i)
-                #sumprobs[lang] += probability.LidstoneProbDist.logprob(laplace[lang], i)
+                sumprobs[lang] += probability.LaplaceProbDist.logprob(model.smoothed[lang], i)
+                #sumprobs[lang] += probability.LidstoneProbDist.logprob(model.smoothed[lang], i)
             except:
                 sumprobs[lang] = 0
     return sumprobs
@@ -117,12 +127,12 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
         print("%s: %g" % (iso_name, prob))
 
 
-def test(cmd_args, user_data, corpus_files, iso_codes):
+def test(cmd_args, user_data, corpus_files, iso_codes, model):
     """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
     if user_data:
         ngrams_test = ngramize(user_data, cmd_args.n_order)
 
-        probs = get_test_probs(ngrams_test, corpus_files)
+        probs = get_test_probs(ngrams_test, corpus_files, model)
 
         probssort = [(value, key) for key, value in probs.items()]
         probssort.sort()
@@ -184,9 +194,10 @@ def main():
     iso_codes, _ = parse_lang_codes(iso_codes_filename)
 
     print("Training...", file=sys.stderr)
-    train(cmd_args, corpus_files)
+    model = Model()
+    train(cmd_args, corpus_files, model)
 
-    test(cmd_args, user_data, corpus_files, iso_codes)
+    test(cmd_args, user_data, corpus_files, iso_codes, model)
 
 if __name__ == '__main__':
     main()
