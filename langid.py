@@ -87,10 +87,10 @@ def train(cmd_args, corpus_files):
     print("Trained on %i languages" % len(corpus_files), file=sys.stderr)
 
 
-def get_test_probs(input_ngrams, corpus_files):
+def get_test_probs(ngrams_test, corpus_files):
     """ Get sum of probabilities for ngrams of test data. """
     sumprobs = {}
-    for i in ngrams["test"]:
+    for i in ngrams_test:
         for lang in corpus_files:
             try:
                 sumprobs[lang] += probability.LaplaceProbDist.logprob(laplace[lang], i)
@@ -120,9 +120,9 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
 def test(cmd_args, user_data, corpus_files, iso_codes):
     """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
     if user_data:
-        ngrams["test"] = ngramize(user_data, cmd_args.n_order)
+        ngrams_test = ngramize(user_data, cmd_args.n_order)
 
-        probs = get_test_probs(ngrams["test"], corpus_files)
+        probs = get_test_probs(ngrams_test, corpus_files)
 
         probssort = [(value, key) for key, value in probs.items()]
         probssort.sort()
@@ -139,8 +139,8 @@ def test(cmd_args, user_data, corpus_files, iso_codes):
         print("tests:", tests)
         for testlang in corpus_files:
             print('testlang is', testlang)
-            ngrams["test"] = tests[testlang]
-            probs = get_test_probs(ngrams["test"])
+            ngrams_test = tests[testlang]
+            probs = get_test_probs(ngrams_test, corpus_files)
 
             # This sorts the languages by probability
             probssort = [(value, key) for key, value in probs.items()]
