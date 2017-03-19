@@ -5,11 +5,12 @@
 #        where 'n' represents n-gram order (eg. bigram, trigram, etc.)  Default: 2
 #        If no input string is given, it uses cross-validation to test itself
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize; use command-line arg parser; resolve ISO ID's to names & rewrite guess output; save model file; lint; pep8; rewrite with lstm
+# TODO: reorganize; save model file; lint; pep8; rewrite with lstm
 
 from __future__ import print_function
 import sys
 import random
+import argparse
 from nltk.corpus import udhr2
 from nltk import probability
 import nltk
@@ -43,7 +44,7 @@ def ngramize(input, n_order):
     return ngrams
 
 
-def train(n_order, corpus_files):
+def train(cmd_args, corpus_files):
     del_list = []
     for lang in corpus_files:
         
@@ -52,7 +53,7 @@ def train(n_order, corpus_files):
     
         # Skip empty files, like nku.txt
         if len(text) < 500:
-            print("skipping pathological file", lang)
+            #print("skipping pathological file", lang)
             del_list.append(lang)
             continue
     
@@ -60,12 +61,12 @@ def train(n_order, corpus_files):
         laplace[lang] = []
         
     ### Build ngrams for each language in training
-        ngrams[lang] = ngramize(text,n_order)
+        ngrams[lang] = ngramize(text, cmd_args.n_order)
     
     ### Randomly remove 10% from the set of ngrams for each language, for testing
         randstart = random.randint(0, len(ngrams[lang]) - len(ngrams[lang])//20 )
         tests[lang] = []
-        for i in range(0,len(ngrams[lang])//20, n_order):
+        for i in range(0,len(ngrams[lang])//20, cmd_args.n_order):
             tests[lang] += [ngrams[lang].pop(randstart)]
         #print(tests[lang])
     
@@ -83,6 +84,7 @@ def train(n_order, corpus_files):
     # Remove langs having empty or tiny files
     for lang in del_list:
         corpus_files.remove(lang)
+    print("Trained on %i languages" % len(corpus_files), file=sys.stderr)
 
 
 def get_test_probs(input_ngrams, corpus_files):
@@ -114,10 +116,10 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
         print("%s: %g" % (iso_name, prob))
 
 
-def test(n_order, user_data, corpus_files, iso_codes):
+def test(cmd_args, user_data, corpus_files, iso_codes):
     """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
     if user_data:
-        ngrams["test"] = ngramize(user_data,n_order)
+        ngrams["test"] = ngramize(user_data, cmd_args.n_order)
     
         probs = get_test_probs(ngrams["test"], corpus_files)
     
@@ -125,7 +127,9 @@ def test(n_order, user_data, corpus_files, iso_codes):
         probssort.sort()
         probssort.reverse()
     
-        format_lang_guesses(probssort, 3, iso_codes)
+        max_guesses = cmd_args.top
+        print("\n    Top %i Guesses:" % max_guesses)
+        format_lang_guesses(probssort, max_guesses, iso_codes)
     
     
     else:
@@ -179,14 +183,13 @@ def main():
     iso_codes_filename = 'lang_codes_iso-639-3.tsv'
     corpus_files = udhr2.fileids()
         
-    ### If no command-line arg is given, just use n = 2
-    try:
-        n_order = int(sys.argv[1])
-    except:
-        n_order = 2
+    parser = argparse.ArgumentParser(description='Massively multilingual lightweight language identification')
+    parser.add_argument('--n_order', help='Specify n-gram order (default: %(default)i)', type=int, default=2)
+    parser.add_argument('--top', help='Show top number of guesses (default: %(default)i)', type=int, default=10)
+    cmd_args = parser.parse_args()
     
     try:
-        user_data = sys.argv[2]
+        user_data = sys.stdin.read()
     except:
         user_data = None
     
@@ -194,11 +197,10 @@ def main():
     
     iso_codes, iso_codes_rev = parse_lang_codes(iso_codes_filename)
     
-    print("\nTraining...\n", file=sys.stderr)
-    train(n_order, corpus_files)
+    print("\nTraining...", file=sys.stderr)
+    train(cmd_args, corpus_files)
 
-    print("Testing...\n", file=sys.stderr)
-    test(n_order, user_data, corpus_files, iso_codes)
+    test(cmd_args, user_data, corpus_files, iso_codes)
 
 if __name__ == '__main__':
     main()
