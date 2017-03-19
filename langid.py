@@ -2,7 +2,7 @@
 # Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize train() and test(); restore cross-validation functionality; save model file; rewrite with lstm
+# TODO: reorganize train() and test(); restore cross-validation functionality; rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 

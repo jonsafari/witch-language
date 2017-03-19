@@ -33,3 +33,4 @@ Sukuma (suk): -428.922
 ```
 
 You can add the `--help` command-line flag to see more options.
+Using Python3 gives much better performance than Python2 for this task.
