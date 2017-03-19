@@ -13,7 +13,6 @@ import argparse
 from nltk.corpus import udhr2
 from nltk import probability
 
-ngrams = {}
 tests = {}
 
 class Model(dict):
@@ -22,10 +21,8 @@ class Model(dict):
     """
     def __init__(self):
         dict.__init__(self)
-        #self.ngrams = {}
+        self.ngrams = {}
         self.smoothed = {}
-        #self.tests = {}
-
 
 
 def parse_lang_codes(iso_codes_filename):
@@ -48,7 +45,6 @@ def ngramize(text, n_order):
     for char in range(len(text) - n_order + 1):
         if text[char:char+n_order]:
             ngrams.append(text[char:char+n_order])
-    #print(ngrams[0:9], "...")
     return ngrams
 
 
@@ -66,29 +62,29 @@ def train(cmd_args, corpus_files, model):
             del_list.append(lang)
             continue
 
-        ngrams[lang] = []
+        model.ngrams[lang] = []
         model.smoothed[lang] = []
 
         # Build ngrams for each language in training
-        ngrams[lang] = ngramize(text, cmd_args.n_order)
+        model.ngrams[lang] = ngramize(text, cmd_args.n_order)
 
         if cmd_args.testall:
             # Randomly remove 10% from the set of ngrams for each language, for testing
-            randstart = random.randint(0, len(ngrams[lang]) - len(ngrams[lang]) // 20)
+            randstart = random.randint(0, len(model.ngrams[lang]) - len(model.ngrams[lang]) // 20)
             tests[lang] = []
-            for _ in range(0, len(ngrams[lang]) // 20, cmd_args.n_order):
-                tests[lang] += [ngrams[lang].pop(randstart)]
+            for _ in range(0, len(model.ngrams[lang]) // 20, cmd_args.n_order):
+                tests[lang] += [model.ngrams[lang].pop(randstart)]
             #print(tests[lang])
 
 
         # Build model based on ngrams for each language in training
-        model.smoothed[lang] = probability.LaplaceProbDist(probability.FreqDist(ngrams[lang]))
-        #model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(ngrams[lang]),0.50)
-        #model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(ngrams[lang]))
+        model.smoothed[lang] = probability.LaplaceProbDist(probability.FreqDist(model.ngrams[lang]))
+        #model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(model.ngrams[lang]),0.50)
+        #model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(model.ngrams[lang]))
 
-        #model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(ngrams[lang]))
-        #model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(ngrams[lang]))
-        #model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(ngrams[lang]))
+        #model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(model.ngrams[lang]))
+        #model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(model.ngrams[lang]))
+        #model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(model.ngrams[lang]))
 
 
     # Remove langs having empty or tiny files
