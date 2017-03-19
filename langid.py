@@ -10,7 +10,10 @@ from __future__ import print_function
 import sys
 import random
 import argparse
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 from nltk.corpus import udhr2
 from nltk import probability
 
@@ -78,14 +81,19 @@ def train(cmd_args, corpus_files, model):
             #print(tests[lang])
 
 
-        # Build model based on ngrams for each language in training
+        # Build model based on ngrams for each language in training; default is laplace
+        #if cmd_args.smoothing == 'lidstone':
+        #    model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(model.ngrams[lang]),0.50)
+        #elif cmd_args.smoothing == 'ele':
+        #    model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(model.ngrams[lang]))
+        #elif cmd_args.smoothing == 'mle':
+        #    model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(model.ngrams[lang]))
+        #elif cmd_args.smoothing == 'wb':
+        #    model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(model.ngrams[lang]))
+        #elif cmd_args.smoothing == 'unif':
+        #    model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(model.ngrams[lang]))
+        #else:
         model.smoothed[lang] = probability.LaplaceProbDist(probability.FreqDist(model.ngrams[lang]))
-        #model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(model.ngrams[lang]),0.50)
-        #model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(model.ngrams[lang]))
-
-        #model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(model.ngrams[lang]))
-        #model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(model.ngrams[lang]))
-        #model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(model.ngrams[lang]))
 
 
 
@@ -160,7 +168,10 @@ def test(cmd_args, user_data, corpus_files, iso_codes, model):
         print(str((100.0*correct) / len(corpus_files))[0:6] + "%")
 
 def create_model_filename(cmd_args):
-    filename = "foobar"
+    filename = "witch-lang"
+    filename += "_smooth-%s" % cmd_args.smoothing
+    filename += "_n-%i" % cmd_args.n_order
+    filename += ".pkl"
     return filename
 
 def main():
@@ -170,9 +181,12 @@ def main():
     corpus_files = udhr2.fileids()
 
     parser = argparse.ArgumentParser(
-        description='Massively multilingual lightweight language identification')
+        description='Easy massively multilingual language identification')
     parser.add_argument('--n_order', type=int, default=2,
                         help='Specify n-gram order (default: %(default)i)')
+    parser.add_argument('--smoothing', type=str, default="laplace",
+                        #help='Using smoothing technique: {laplace, lidstone, ele, mle, wb, unif}'
+                        )
     parser.add_argument('--testall', type=bool, default=False,
                         help='Test all languages with cross-validation')
     parser.add_argument('--top', type=int, default=10,
@@ -191,8 +205,8 @@ def main():
 
     model = Model()
     try:
-        print("Loading model: %s" % model_filename, file=sys.stderr)
         model = pickle.load(open(model_filename, "rb"))
+        print("Loading model: %s" % model_filename, file=sys.stderr)
     except:
         print("Existing model not found.  Training...", file=sys.stderr)
         train(cmd_args, corpus_files, model)
