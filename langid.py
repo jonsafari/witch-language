@@ -137,10 +137,7 @@ def test(cmd_args, user_data, corpus_files, iso_codes, model):
         probssort = [(value, key) for key, value in probs.items()]
         probssort.sort()
         probssort.reverse()
-
-        max_guesses = cmd_args.top
-        print("\n    Top %i Guesses:" % max_guesses, file=sys.stderr)
-        format_lang_guesses(probssort, max_guesses, iso_codes)
+        return probssort
 
 
     else:
@@ -218,7 +215,9 @@ def main():
         corpus_files.remove(lang)
     print("Using %i languages" % len(corpus_files), file=sys.stderr)
 
-    test(cmd_args, user_data, corpus_files, iso_codes, model)
+    probssort = test(cmd_args, user_data, corpus_files, iso_codes, model)
+    print("\n    Top %i Guesses:" % cmd_args.top, file=sys.stderr)
+    format_lang_guesses(probssort, cmd_args.top, iso_codes)
 
 if __name__ == '__main__':
     main()
