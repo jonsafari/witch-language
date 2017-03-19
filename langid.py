@@ -17,8 +17,6 @@ except:
 from nltk.corpus import udhr2
 from nltk import probability
 
-tests = {}
-
 class Model(dict):
     """ Simple model containing ngrams and smoothed statistical probs.
     Also allows for easy serialization.
@@ -27,6 +25,7 @@ class Model(dict):
         dict.__init__(self)
         self.ngrams = {}
         self.smoothed = {}
+        self.tests = {}
         self.deleted_langs = []
 
 
@@ -75,10 +74,10 @@ def train(cmd_args, corpus_files, model):
         if cmd_args.testall:
             # Randomly remove 10% from the set of ngrams for each language, for testing
             randstart = random.randint(0, len(model.ngrams[lang]) - len(model.ngrams[lang]) // 20)
-            tests[lang] = []
+            model.tests[lang] = []
             for _ in range(0, len(model.ngrams[lang]) // 20, cmd_args.n_order):
-                tests[lang] += [model.ngrams[lang].pop(randstart)]
-            #print(tests[lang])
+                model.tests[lang] += [model.ngrams[lang].pop(randstart)]
+            #print(model.tests[lang])
 
 
         # Build model based on ngrams for each language in training; default is laplace
@@ -143,10 +142,10 @@ def test(cmd_args, user_data, corpus_files, iso_codes, model):
     else:
         correct = 0
         probs = {}
-        print("tests:", tests)
+        print("tests:", model.tests)
         for testlang in corpus_files:
             print('testlang is', testlang)
-            ngrams_test = tests[testlang]
+            ngrams_test = model.tests[testlang]
             probs = get_test_probs(ngrams_test, corpus_files)
 
             # This sorts the languages by probability
@@ -168,6 +167,7 @@ def create_model_filename(cmd_args):
     filename = "witch-lang"
     filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
+    filename += "_cv-%i" % cmd_args.testall
     filename += "_py-%i" % sys.version_info.major
     filename += ".pkl"
     return filename
