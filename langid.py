@@ -146,7 +146,7 @@ def test(cmd_args, user_data, corpus_files, iso_codes, model):
         for testlang in corpus_files:
             print('testlang is', testlang)
             ngrams_test = model.tests[testlang]
-            probs = get_test_probs(ngrams_test, corpus_files)
+            probs = get_test_probs(ngrams_test, corpus_files, model)
 
             # This sorts the languages by probability
             probssort = [(value, key) for key, value in probs.items()]
