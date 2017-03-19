@@ -2,7 +2,7 @@
 # Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize train() and test(); rewrite with lstm
+# TODO: reorganize train(); rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 
@@ -126,41 +126,42 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
         print("%s: %g" % (iso_name, prob))
 
 
-def test(cmd_args, user_data, corpus_files, iso_codes, model):
-    """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
-    if user_data:
-        ngrams_test = ngramize(user_data, cmd_args.n_order)
+def test_input(cmd_args, user_data, corpus_files, iso_codes, model):
+    """ Use command-line argument as test data. """
+    ngrams_test = ngramize(user_data, cmd_args.n_order)
 
+    probs = get_test_probs(ngrams_test, corpus_files, model)
+
+    probssort = [(value, key) for key, value in probs.items()]
+    probssort.sort()
+    probssort.reverse()
+    return probssort
+
+
+def test_all(cmd_args, corpus_files, iso_codes, model):
+    """ Cross-validate data. """
+    correct = 0
+    probs = {}
+    #print("tests:", model.tests)
+    for testlang in corpus_files:
+        ngrams_test = model.tests[testlang]
         probs = get_test_probs(ngrams_test, corpus_files, model)
 
+        # This sorts the languages by probability
         probssort = [(value, key) for key, value in probs.items()]
         probssort.sort()
         probssort.reverse()
-        return probssort
 
+        # Print results
+        if testlang == probssort[0][1]:
+            print(testlang, " :-)")
+            correct += 1
+        else:
+            print(testlang, "best guess: ", probssort[0:2])
 
-    else:
-        correct = 0
-        probs = {}
-        #print("tests:", model.tests)
-        for testlang in corpus_files:
-            ngrams_test = model.tests[testlang]
-            probs = get_test_probs(ngrams_test, corpus_files, model)
+    print("\nCorrect: At least", str(correct) + "/" + str(len(corpus_files)), "= ", end='')
+    print(str((100.0*correct) / len(corpus_files))[0:6] + "%")
 
-            # This sorts the languages by probability
-            probssort = [(value, key) for key, value in probs.items()]
-            probssort.sort()
-            probssort.reverse()
-
-            # Print results
-            if testlang == probssort[0][1]:
-                print(testlang, " :-)")
-                correct += 1
-            else:
-                print(testlang, "best guess: ", probssort[0:2])
-
-        print("\nCorrect: At least", str(correct) + "/" + str(len(corpus_files)), "= ", end='')
-        print(str((100.0*correct) / len(corpus_files))[0:6] + "%")
 
 def create_model_filename(cmd_args):
     filename = "witch-lang"
@@ -189,11 +190,6 @@ def main():
                         help='Show top number of guesses (default: %(default)i)')
     cmd_args = parser.parse_args()
 
-    if cmd_args.testall:
-        user_data = None
-    else:
-        user_data = sys.stdin.read()
-
     random.seed(598383715)
 
     iso_codes, _ = parse_lang_codes(iso_codes_filename)
@@ -213,8 +209,11 @@ def main():
         corpus_files.remove(lang)
     print("Using %i languages" % len(corpus_files), file=sys.stderr)
 
-    probssort = test(cmd_args, user_data, corpus_files, iso_codes, model)
-    if not cmd_args.testall:
+    if cmd_args.testall:
+        test_all(cmd_args, corpus_files, iso_codes, model)
+    else:
+        user_data = sys.stdin.read()
+        probssort = test_input(cmd_args, user_data, corpus_files, iso_codes, model)
         print("\n    Top %i Guesses:" % cmd_args.top, file=sys.stderr)
         format_lang_guesses(probssort, cmd_args.top, iso_codes)
 
