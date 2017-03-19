@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Mostly written in 2008 for a class; updated a little in 2017
+# Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize; save model file; lint; pep8; rewrite with lstm
+# TODO: reorganize train() and test(); restore cross-validation functionality; save model file; rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 
@@ -62,12 +62,13 @@ def train(cmd_args, corpus_files):
         # Build ngrams for each language in training
         ngrams[lang] = ngramize(text, cmd_args.n_order)
 
-        # Randomly remove 10% from the set of ngrams for each language, for testing
-        randstart = random.randint(0, len(ngrams[lang]) - len(ngrams[lang]) // 20)
-        tests[lang] = []
-        for _ in range(0, len(ngrams[lang]) // 20, cmd_args.n_order):
-            tests[lang] += [ngrams[lang].pop(randstart)]
-        #print(tests[lang])
+        if cmd_args.testall:
+            # Randomly remove 10% from the set of ngrams for each language, for testing
+            randstart = random.randint(0, len(ngrams[lang]) - len(ngrams[lang]) // 20)
+            tests[lang] = []
+            for _ in range(0, len(ngrams[lang]) // 20, cmd_args.n_order):
+                tests[lang] += [ngrams[lang].pop(randstart)]
+            #print(tests[lang])
 
 
         # Build model based on ngrams for each language in training
@@ -128,7 +129,7 @@ def test(cmd_args, user_data, corpus_files, iso_codes):
         probssort.reverse()
 
         max_guesses = cmd_args.top
-        print("\n    Top %i Guesses:" % max_guesses)
+        print("\n    Top %i Guesses:" % max_guesses, file=sys.stderr)
         format_lang_guesses(probssort, max_guesses, iso_codes)
 
 
@@ -182,7 +183,7 @@ def main():
 
     iso_codes, _ = parse_lang_codes(iso_codes_filename)
 
-    print("\nTraining...", file=sys.stderr)
+    print("Training...", file=sys.stderr)
     train(cmd_args, corpus_files)
 
     test(cmd_args, user_data, corpus_files, iso_codes)
