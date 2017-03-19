@@ -8,11 +8,14 @@
 # TODO: reorganize; use command-line arg parser; resolve ISO ID's to names & rewrite guess output; lint; pep8; rewrite with lstm
 
 from __future__ import print_function
-import sys, random, decimal
+import sys
+import random
 from nltk.corpus import udhr2
 from nltk import probability
 import nltk
 nltk.download('udhr2')
+
+iso_codes_filename = 'lang_codes_iso-639-3.tsv'
     
 ### If no command-line arg is given, just use n = 2
 try:
@@ -31,6 +34,20 @@ random.seed(598383715)
 corpus_files = udhr2.fileids()
 #corpus_files = [f[:-1] for f in open("usablefiles.txt").readlines()]
 
+def parse_lang_codes(iso_codes_filename):
+    """
+    Bijective mapping between ISO 639-3 language codes and their (macro-)language name.
+    Eg. codes = {'eng':'English', ... }; codes_rev = {'English': 'eng', ...}
+    """
+    codes = {}
+    codes_rev = {}
+    with open(iso_codes_filename) as code_file:
+        for line in code_file:
+            code, lang = line.rstrip().split('\t')
+            codes[code] = lang
+            codes_rev[lang] = code
+    return (codes, codes_rev)
+
 
 ### Build ngrams for input text
 def ngramize(input, n):
@@ -45,7 +62,9 @@ ngrams  = {}
 laplace = {}
 tests   = {}
 
-sys.stderr.write("\nTraining...\n")
+codes, codes_rev = parse_lang_codes(iso_codes_filename)
+
+print("\nTraining...\n", file=sys.stderr)
 
 del_list = []
 for lang in corpus_files:
@@ -103,7 +122,7 @@ def getprobs(input_ngrams):
     return sumprobs
 
 
-sys.stderr.write("Testing...\n")
+print("Testing...\n", file=sys.stderr)
 
 ### Use command-line argument as test data, if given.  Otherwise use testing sections
 if user_data:
@@ -162,3 +181,6 @@ else:
     ### Sure, blame it on the compiler or hardware.
     ### Somehow other languages just get it right.
     print(str( (100.0*correct) / len(corpus_files) )[0:6] + "%")
+
+#if __name__ == '__main__':
+#    main()
