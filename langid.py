@@ -17,8 +17,6 @@ import nltk
 ngrams  = {}
 laplace = {}
 tests   = {}
-corpus_files = udhr2.fileids()
-#corpus_files = [f[:-1] for f in open("usablefiles.txt").readlines()]
 
 
 def parse_lang_codes(iso_codes_filename):
@@ -45,7 +43,7 @@ def ngramize(input, n_order):
     return ngrams
 
 
-def train(n_order):
+def train(n_order, corpus_files):
     del_list = []
     for lang in corpus_files:
         
@@ -87,7 +85,7 @@ def train(n_order):
         corpus_files.remove(lang)
 
 
-def get_test_probs(input_ngrams):
+def get_test_probs(input_ngrams, corpus_files):
     """ Get sum of probabilities for ngrams of test data. """
     sumprobs = {}
     for i in ngrams["test"]:
@@ -101,12 +99,12 @@ def get_test_probs(input_ngrams):
 
 
 
-def test(n_order, user_data):
+def test(n_order, user_data, corpus_files):
     """ Use command-line argument as test data, if given.  Otherwise use testing sections. """
     if user_data:
         ngrams["test"] = ngramize(user_data,n_order)
     
-        probs = get_test_probs(ngrams["test"])
+        probs = get_test_probs(ngrams["test"], corpus_files)
     
         probssort = [ (value, key) for key, value in probs.items() ]
         probssort.sort()
@@ -164,6 +162,7 @@ def test(n_order, user_data):
 def main():
     nltk.download('udhr2')
     iso_codes_filename = 'lang_codes_iso-639-3.tsv'
+    corpus_files = udhr2.fileids()
         
     ### If no command-line arg is given, just use n = 2
     try:
@@ -181,10 +180,10 @@ def main():
     codes, codes_rev = parse_lang_codes(iso_codes_filename)
     
     print("\nTraining...\n", file=sys.stderr)
-    train(n_order)
+    train(n_order, corpus_files)
 
     print("Testing...\n", file=sys.stderr)
-    test(n_order, user_data)
+    test(n_order, user_data, corpus_files)
 
 if __name__ == '__main__':
     main()
