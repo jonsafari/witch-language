@@ -52,7 +52,7 @@ def train(cmd_args, corpus_files):
         #print("lang:", lang, "; length:", len(text))
     
         # Skip empty files, like nku.txt
-        if len(text) < 500:
+        if len(text) < 1000:
             #print("skipping pathological file", lang)
             del_list.append(lang)
             continue
@@ -179,7 +179,7 @@ def test(cmd_args, user_data, corpus_files, iso_codes):
 
 
 def main():
-    nltk.download('udhr2')
+    #nltk.download('udhr2')
     iso_codes_filename = 'lang_codes_iso-639-3.tsv'
     corpus_files = udhr2.fileids()
         
