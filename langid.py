@@ -173,6 +173,7 @@ def create_model_filename(cmd_args):
     filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
     filename += "_cv-%i" % cmd_args.cross_valid
+    filename += "_tl-%i" % cmd_args.test_len
     filename += "_py-%i" % sys.version_info.major
     filename += ".pkl"
     return filename
