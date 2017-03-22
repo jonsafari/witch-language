@@ -2,7 +2,7 @@
 # Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize train(); prune singleton ngrams; rewrite with lstm
+# TODO: reorganize train(); prune singleton ngrams; add prior on lang freq; look at diff bet. probs after dict refactoring; rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 
