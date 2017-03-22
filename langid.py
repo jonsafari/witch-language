@@ -2,12 +2,13 @@
 # Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize train(); rewrite with lstm
+# TODO: reorganize train(); prune singleton ngrams; rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 
 from __future__ import print_function
 import sys
+import re
 import random
 import argparse
 try:
@@ -43,12 +44,16 @@ def parse_lang_codes(iso_codes_filename):
     return (iso_codes, iso_codes_rev)
 
 
-def ngramize(text, n_order):
+def char_freqs(text, n_order, prune=False):
     """ Build ngrams for input text. """
-    ngrams = []
+    ngrams = {}
     for char in range(len(text) - n_order + 1):
-        if text[char:char+n_order]:
-            ngrams.append(text[char:char+n_order])
+        substring = text[char:char+n_order]
+        if substring:
+            if substring in ngrams:
+                ngrams[substring] += 1
+            else:
+                ngrams[substring] = 1
     return ngrams
 
 
@@ -58,6 +63,8 @@ def train(cmd_args, corpus_files, model):
 
         text = udhr2.raw(lang)
         #print("lang:", lang, "; length:", len(text))
+        # Replace multiple whitespaces (including ' ', '\n', '\t') with just one ' '
+        text = re.sub('\s+', ' ', text)
 
         # Skip empty files, like nku.txt
         if len(text) < 1000:
@@ -65,19 +72,16 @@ def train(cmd_args, corpus_files, model):
             model.deleted_langs.append(lang)
             continue
 
-        model.ngrams[lang] = []
+        model.ngrams[lang] = {}
         model.smoothed[lang] = []
 
-        # Build ngrams for each language in training
-        model.ngrams[lang] = ngramize(text, cmd_args.n_order)
+        if cmd_args.cross_valid:
+            # Remove the first 100 characters to go to the test set
+            model.tests[lang] = text[:cmd_args.test_len]
+            text = text[cmd_args.test_len:]
 
-        if cmd_args.testall:
-            # Randomly remove 10% from the set of ngrams for each language, for testing
-            randstart = random.randint(0, len(model.ngrams[lang]) - len(model.ngrams[lang]) // 20)
-            model.tests[lang] = []
-            for _ in range(0, len(model.ngrams[lang]) // 20, cmd_args.n_order):
-                model.tests[lang] += [model.ngrams[lang].pop(randstart)]
-            #print(model.tests[lang])
+        # Build ngrams for each language in training
+        model.ngrams[lang] = char_freqs(text, cmd_args.n_order)
 
 
         # Build model based on ngrams for each language in training; default is laplace
@@ -98,14 +102,14 @@ def train(cmd_args, corpus_files, model):
 
 def get_test_probs(ngrams_test, corpus_files, model):
     """ Get sum of probabilities for ngrams of test data. """
+    # Initialize probs
     sumprobs = {}
-    for i in ngrams_test:
+    for lang in corpus_files:
+        sumprobs[lang] = 0.0
+
+    for ngram in ngrams_test:
         for lang in corpus_files:
-            try:
-                sumprobs[lang] += probability.LaplaceProbDist.logprob(model.smoothed[lang], i)
-                #sumprobs[lang] += probability.LidstoneProbDist.logprob(model.smoothed[lang], i)
-            except:
-                sumprobs[lang] = 0
+            sumprobs[lang] += ngrams_test[ngram] * probability.LaplaceProbDist.logprob(model.smoothed[lang], ngram)
     return sumprobs
 
 
@@ -128,7 +132,7 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
 
 def test_input(cmd_args, user_data, corpus_files, iso_codes, model):
     """ Use command-line argument as test data. """
-    ngrams_test = ngramize(user_data, cmd_args.n_order)
+    ngrams_test = char_freqs(user_data, cmd_args.n_order)
 
     probs = get_test_probs(ngrams_test, corpus_files, model)
 
@@ -144,7 +148,7 @@ def test_all(cmd_args, corpus_files, iso_codes, model):
     probs = {}
     #print("tests:", model.tests)
     for testlang in corpus_files:
-        ngrams_test = model.tests[testlang]
+        ngrams_test = char_freqs(model.tests[testlang], cmd_args.n_order)
         probs = get_test_probs(ngrams_test, corpus_files, model)
 
         # This sorts the languages by probability
@@ -167,7 +171,7 @@ def create_model_filename(cmd_args):
     filename = "witch-lang"
     filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
-    filename += "_cv-%i" % cmd_args.testall
+    filename += "_cv-%i" % cmd_args.cross_valid
     filename += "_py-%i" % sys.version_info.major
     filename += ".pkl"
     return filename
@@ -184,8 +188,10 @@ def main():
     parser.add_argument('--smoothing', type=str, default="laplace",
                         #help='Using smoothing technique: {laplace, lidstone, ele, mle, wb, unif}'
                         )
-    parser.add_argument('--testall', action="store_true",
+    parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
+    parser.add_argument('--test_len', type=int, default=100,
+                        help='Specify cross-validation test length (default: %(default)i)')
     parser.add_argument('--top', type=int, default=10,
                         help='Show top number of guesses (default: %(default)i)')
     cmd_args = parser.parse_args()
@@ -209,7 +215,7 @@ def main():
         corpus_files.remove(lang)
     print("Using %i languages" % len(corpus_files), file=sys.stderr)
 
-    if cmd_args.testall:
+    if cmd_args.cross_valid:
         test_all(cmd_args, corpus_files, iso_codes, model)
     else:
         user_data = sys.stdin.read()
