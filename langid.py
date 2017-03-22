@@ -64,7 +64,7 @@ def train(cmd_args, corpus_files, model):
         text = udhr2.raw(lang)
         #print("lang:", lang, "; length:", len(text))
         # Replace multiple whitespaces (including ' ', '\n', '\t') with just one ' '
-        text = re.sub('\s+', ' ', text)
+        text = re.sub(r'\s+', ' ', text)
 
         # Skip empty files, like nku.txt
         if len(text) < 1000:
@@ -130,7 +130,7 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
         print("%s: %g" % (iso_name, prob))
 
 
-def test_input(cmd_args, user_data, corpus_files, iso_codes, model):
+def test_input(cmd_args, user_data, corpus_files, model):
     """ Use command-line argument as test data. """
     ngrams_test = char_freqs(user_data, cmd_args.n_order)
 
@@ -142,7 +142,7 @@ def test_input(cmd_args, user_data, corpus_files, iso_codes, model):
     return probssort
 
 
-def test_all(cmd_args, corpus_files, iso_codes, model):
+def test_all(cmd_args, corpus_files, model):
     """ Cross-validate data. """
     correct = 0
     probs = {}
@@ -168,6 +168,7 @@ def test_all(cmd_args, corpus_files, iso_codes, model):
 
 
 def create_model_filename(cmd_args):
+    """ Constructs the filename of the pickled model. """
     filename = "witch-lang"
     filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
@@ -187,7 +188,7 @@ def main():
                         help='Specify n-gram order (default: %(default)i)')
     parser.add_argument('--smoothing', type=str, default="laplace",
                         #help='Using smoothing technique: {laplace, lidstone, ele, mle, wb, unif}'
-                        )
+                       )
     parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
     parser.add_argument('--test_len', type=int, default=100,
@@ -216,10 +217,10 @@ def main():
     print("Using %i languages" % len(corpus_files), file=sys.stderr)
 
     if cmd_args.cross_valid:
-        test_all(cmd_args, corpus_files, iso_codes, model)
+        test_all(cmd_args, corpus_files, model)
     else:
         user_data = sys.stdin.read()
-        probssort = test_input(cmd_args, user_data, corpus_files, iso_codes, model)
+        probssort = test_input(cmd_args, user_data, corpus_files, model)
         print("\n    Top %i Guesses:" % cmd_args.top, file=sys.stderr)
         format_lang_guesses(probssort, cmd_args.top, iso_codes)
 
