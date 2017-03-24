@@ -7,8 +7,10 @@
 """ Simple language identification for 380 languages. """
 
 from __future__ import print_function
+import os
 import sys
 import re
+import math
 import random
 import argparse
 try:
@@ -27,7 +29,11 @@ class Model(dict):
         self.ngrams = {}
         self.smoothed = {}
         self.tests = {}
+        self.stats = {}
         self.deleted_langs = []
+
+    def __repr__(self):
+        return "%i ngrams; %i smoothed; %i tests; %i stats; %i deleted langs" % (len(self.ngrams), len(self.smoothed), len(self.tests), len(self.stats), len(self.deleted_langs))
 
 
 def parse_lang_codes(iso_codes_filename):
@@ -42,6 +48,18 @@ def parse_lang_codes(iso_codes_filename):
             iso_codes[iso_code] = lang
             iso_codes_rev[lang] = iso_code
     return (iso_codes, iso_codes_rev)
+
+
+def parse_lang_stats(lang_stats_filename):
+    """ Builds dict between ISO 639-3 language codes and their approximate
+    number of speakers, based on Wikipedia.
+    """
+    iso_codes = {}
+    with open(lang_stats_filename) as stats_file:
+        for line in stats_file:
+            iso_code, population = line.rstrip().split('\t')
+            iso_codes[iso_code] = int(population)
+    return iso_codes
 
 
 def char_freqs(text, n_order, prune=False):
@@ -83,24 +101,10 @@ def train(cmd_args, corpus_files, model):
         # Build ngrams for each language in training
         model.ngrams[lang] = char_freqs(text, cmd_args.n_order)
 
-
-        # Build model based on ngrams for each language in training; default is laplace
-        #if cmd_args.smoothing == 'lidstone':
-        #    model.smoothed[lang] = probability.LidstoneProbDist(probability.FreqDist(model.ngrams[lang]),0.50)
-        #elif cmd_args.smoothing == 'ele':
-        #    model.smoothed[lang] = probability.ELEProbDist(probability.FreqDist(model.ngrams[lang]))
-        #elif cmd_args.smoothing == 'mle':
-        #    model.smoothed[lang] = probability.MLEProbDist(probability.FreqDist(model.ngrams[lang]))
-        #elif cmd_args.smoothing == 'wb':
-        #    model.smoothed[lang] = probability.WittenBellProbDist(probability.FreqDist(model.ngrams[lang]))
-        #elif cmd_args.smoothing == 'unif':
-        #    model.smoothed[lang] = probability.UniformProbDist(probability.FreqDist(model.ngrams[lang]))
-        #else:
         model.smoothed[lang] = probability.LaplaceProbDist(probability.FreqDist(model.ngrams[lang]))
 
 
-
-def get_test_probs(ngrams_test, corpus_files, model):
+def get_test_probs(cmd_args, ngrams_test, corpus_files, model):
     """ Get sum of probabilities for ngrams of test data. """
     # Initialize probs
     sumprobs = {}
@@ -110,6 +114,20 @@ def get_test_probs(ngrams_test, corpus_files, model):
     for ngram in ngrams_test:
         for lang in corpus_files:
             sumprobs[lang] += ngrams_test[ngram] * probability.LaplaceProbDist.logprob(model.smoothed[lang], ngram)
+
+    # The population prior is mostly useful for really small test snippets
+    if not cmd_args.no_prior:
+        for lang in corpus_files:
+            # Strip trailing .txt, and check if it's in the population statistics dict
+            lang_prefix = lang[:-4]
+            if lang_prefix in model.stats:
+                # Normalize population counts by approximate total number of people on earth
+                sumprobs[lang] += math.log(model.stats[lang_prefix] / 8e9)
+            else:
+                # If language isn't in the language population statistics,
+                # assume median value of all langs, which is about 500K
+                sumprobs[lang] += math.log(500000 / 8e9)
+
     return sumprobs
 
 
@@ -134,7 +152,7 @@ def test_input(cmd_args, user_data, corpus_files, model):
     """ Use command-line argument as test data. """
     ngrams_test = char_freqs(user_data, cmd_args.n_order)
 
-    probs = get_test_probs(ngrams_test, corpus_files, model)
+    probs = get_test_probs(cmd_args, ngrams_test, corpus_files, model)
 
     probssort = [(value, key) for key, value in probs.items()]
     probssort.sort()
@@ -149,7 +167,7 @@ def test_all(cmd_args, corpus_files, model):
     #print("tests:", model.tests)
     for testlang in corpus_files:
         ngrams_test = char_freqs(model.tests[testlang], cmd_args.n_order)
-        probs = get_test_probs(ngrams_test, corpus_files, model)
+        probs = get_test_probs(cmd_args, ngrams_test, corpus_files, model)
 
         # This sorts the languages by probability
         probssort = [(value, key) for key, value in probs.items()]
@@ -170,7 +188,6 @@ def test_all(cmd_args, corpus_files, model):
 def create_model_filename(cmd_args):
     """ Constructs the filename of the pickled model. """
     filename = "witch-lang"
-    filename += "_smooth-%s" % cmd_args.smoothing
     filename += "_n-%i" % cmd_args.n_order
     filename += "_cv-%i" % cmd_args.cross_valid
     filename += "_tl-%i" % cmd_args.test_len
@@ -180,43 +197,45 @@ def create_model_filename(cmd_args):
 
 def main():
     """ Identifies language from STDIN. """
-    iso_codes_filename = 'lang_codes_iso-639-3.tsv'
-    corpus_files = udhr2.fileids()
-
     parser = argparse.ArgumentParser(
         description='Easy massively multilingual language identification')
     parser.add_argument('-n', '--n_order', type=int, default=2,
                         help='Specify n-gram order (default: %(default)i)')
-    parser.add_argument('--smoothing', type=str, default="laplace",
-                        #help='Using smoothing technique: {laplace, lidstone, ele, mle, wb, unif}'
-                       )
     parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
     parser.add_argument('--test_len', type=int, default=100,
                         help='Specify cross-validation test length (default: %(default)i)')
+    parser.add_argument('--no_prior', action="store_true",
+                        help='Disable language population prior')
     parser.add_argument('--top', type=int, default=10,
                         help='Show top number of guesses (default: %(default)i)')
     cmd_args = parser.parse_args()
-
+    
     random.seed(598383715)
-
+    basepath = os.path.dirname(os.path.realpath(__file__))
+    iso_codes_filename = os.path.join(basepath, 'lang_codes_iso-639-3.tsv')
+    lang_stats_filename = os.path.join(basepath, 'lang_stats_wp.tsv')
+    corpus_files = udhr2.fileids()
+    
+    
     iso_codes, _ = parse_lang_codes(iso_codes_filename)
     model_filename = create_model_filename(cmd_args)
-
+    
     model = Model()
     try:
         model = pickle.load(open(model_filename, "rb"))
         print("Loading model: %s" % model_filename, file=sys.stderr)
     except:
         print("Existing model not found.  Training...", file=sys.stderr)
+        model.stats = parse_lang_stats(lang_stats_filename)
         train(cmd_args, corpus_files, model)
         pickle.dump(model, open(model_filename, "wb"))
-
+    
     # Remove langs having empty or tiny files
     for lang in model.deleted_langs:
         corpus_files.remove(lang)
     print("Using %i languages" % len(corpus_files), file=sys.stderr)
-
+    
     if cmd_args.cross_valid:
         test_all(cmd_args, corpus_files, model)
     else:
