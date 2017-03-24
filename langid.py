@@ -199,7 +199,7 @@ def main():
     """ Identifies language from STDIN. """
     parser = argparse.ArgumentParser(
         description='Easy massively multilingual language identification')
-    parser.add_argument('-n', '--n_order', type=int, default=3,
+    parser.add_argument('-n', '--n_order', type=int, default=2,
                         help='Specify n-gram order (default: %(default)i)')
     parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
