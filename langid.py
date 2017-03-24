@@ -2,7 +2,7 @@
 # Mostly written in 2008; updated in 2017
 # By Jon Dehdari.
 # License: GPLv.3 (see www.fsf.org)
-# TODO: reorganize train(); prune singleton ngrams; add prior on lang freq; look at diff bet. probs after dict refactoring; rewrite with lstm
+# TODO: reorganize train(); look at diff bet. probs after dict refactoring; rewrite with lstm
 
 """ Simple language identification for 380 languages. """
 
@@ -199,11 +199,11 @@ def main():
     """ Identifies language from STDIN. """
     parser = argparse.ArgumentParser(
         description='Easy massively multilingual language identification')
-    parser.add_argument('-n', '--n_order', type=int, default=2,
+    parser.add_argument('-n', '--n_order', type=int, default=3,
                         help='Specify n-gram order (default: %(default)i)')
     parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
-    parser.add_argument('--test_len', type=int, default=100,
+    parser.add_argument('--test_len', type=int, default=200,
                         help='Specify cross-validation test length (default: %(default)i)')
     parser.add_argument('--no_prior', action="store_true",
                         help='Disable language population prior')
