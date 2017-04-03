@@ -157,6 +157,13 @@ def test_input(cmd_args, user_data, corpus_files, model):
     probssort = [(value, key) for key, value in probs.items()]
     probssort.sort()
     probssort.reverse()
+
+    # Produce probabilities, if requested
+    if not cmd_args.no_probs:
+        # Get normalizer
+        Z = sum([2**score for score, _ in probssort])
+        probssort = [(((2**score)/Z), val) for (score, val) in probssort]
+
     return probssort
 
 
@@ -203,6 +210,8 @@ def main():
                         help='Specify n-gram order (default: %(default)i)')
     parser.add_argument('--cross_valid', action="store_true",
                         help='Test all languages with cross-validation')
+    parser.add_argument('--no_probs', action="store_true",
+                        help="Don't output probabilities")
     parser.add_argument('--test_len', type=int, default=200,
                         help='Specify cross-validation test length (default: %(default)i)')
     parser.add_argument('--no_prior', action="store_true",
