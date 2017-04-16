@@ -38,11 +38,8 @@ class Model(dict):
 
         # Build model, using MXNet's Python Symbolic API
         self.net = mx.sym.Variable('data')
-        self.net = mx.sym.Embedding(self.net, name='embedding', input_dim=vocab_size, output_dim=6)
-        self.net = mx.sym.FullyConnected(self.net, name='fc1', num_hidden=3)
-        self.net = mx.sym.Activation(self.net, name='relu1', act_type='relu')
-        self.net = mx.sym.FullyConnected(self.net, name='fc2', num_hidden=4)
-        self.net = mx.sym.Activation(self.net, name='relu2', act_type='relu')
+        self.net = mx.sym.Embedding(self.net, name='embedding', input_dim=vocab_size, output_dim=20)
+        self.net = mx.sym.RNN(self.net, name='rnn', mode='lstm', bidirectional=True, state_size=20, num_layers=2)
         self.net = mx.sym.SoftmaxOutput(self.net, name='softmax')
 
     def __repr__(self):
@@ -79,17 +76,18 @@ def train(cmd_args, corpus_files, model):
     """ Trains statistical model. """
 
     xs, ys = generate_train_set(cmd_args, model, corpus_files)
+    #xs = [[x] for x in xs] # wrap each item in another list, which is what mxnet wants
     print("head(xs)=", xs[:10])
     print("head(ys)=", ys[:10])
-    print("Converting training text to NDArrayIter; %i items" % len(xs))
-    data_iter = mx.io.NDArrayIter(np.array(xs), label=np.array(ys), batch_size=cmd_args.batch)
-    print("Done")
+    data_iter = mx.io.NDArrayIter(np.array(xs), label=np.array(ys), shuffle=True, batch_size=cmd_args.batch)
+    print("Converted training text to NDArrayIter; %i items" % len(xs))
     module = mx.mod.Module(symbol=model.net, context=mx.cpu(0), data_names=['data'])
     module.fit(data_iter, num_epoch=cmd_args.epochs,
               #eval_metric='acc',
               #initializer=mx.init.Xavier(factor_type='in'),
               #optimizer_params={'learning_rate':1.0, 'momentum':0.9}
               )
+    return module
 
 def generate_train_set(cmd_args, model, corpus_files):
     """ Returns (ngrams, lang_labels) """
@@ -102,7 +100,7 @@ def generate_train_set(cmd_args, model, corpus_files):
         text = re.sub(r'\s+', ' ', text)
 
         # Skip empty files, like nku.txt
-        if len(text) < 20000:
+        if len(text) < 17000:
             #print("skipping pathological file", lang)
             model.deleted_langs.append(lang)
             continue
@@ -129,6 +127,7 @@ def text2ints(model, text):
         if char not in model.char2int:
             model.char2int[char] = len(model.char2int) + 1
         ints[char_pos] = model.char2int[char]
+    print("vocab size=", len(model.char2int))
     return ints
             
 
@@ -189,7 +188,7 @@ def format_lang_guesses(sorted_probs, max_guesses, iso_codes):
 
 def test_input(cmd_args, user_data, corpus_files, model):
     """ Use command-line argument as test data. """
-    ngrams_test = get_instances(user_data, cmd_args)
+    ngrams_test = get_instances(cmd_args, user_data)
 
     probs = get_test_probs(cmd_args, ngrams_test, corpus_files, model)
 
@@ -270,7 +269,7 @@ def main():
     corpus_files = udhr2.fileids()
     
     # Build model
-    model = Model(vocab_size=500)
+    model = Model(vocab_size=400)
 
     # Populate lang_id <-> int dictionary
     for corpus_file in corpus_files:
@@ -289,9 +288,9 @@ def main():
     except:
         print("Existing model not found.  Training...", file=sys.stderr)
         model.stats = parse_lang_stats(lang_stats_filename)
-        train(cmd_args, corpus_files, model)
-        #pickle.dump(model, open(model_filename, "wb"))
-        module.save_params(model_filename)
+        mxmodel = train(cmd_args, corpus_files, model)
+        pickle.dump(model, open(model_filename, "wb"))
+        #mxmodel.save_params(model_filename)
     
     # Remove langs having empty or tiny files
     for lang in model.deleted_langs:
