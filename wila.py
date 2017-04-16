@@ -26,7 +26,7 @@ class Model(dict):
     """ Simple model containing ngrams and smoothed statistical probs.
     Also allows for easy serialization.
     """
-    def __init__(self):
+    def __init__(self, vocab_size):
         dict.__init__(self)
         self.tests = {}
         self.stats = {}
@@ -35,11 +35,14 @@ class Model(dict):
         self.lang2int = {}
         self.int2lang = {}
         self.deleted_langs = []
+
         # Build model, using MXNet's Python Symbolic API
         self.net = mx.sym.Variable('data')
-        self.net = mx.sym.FullyConnected(self.net, name='fc1', num_hidden=2)
+        self.net = mx.sym.Embedding(self.net, name='embedding', input_dim=vocab_size, output_dim=6)
+        self.net = mx.sym.FullyConnected(self.net, name='fc1', num_hidden=3)
         self.net = mx.sym.Activation(self.net, name='relu1', act_type='relu')
         self.net = mx.sym.FullyConnected(self.net, name='fc2', num_hidden=4)
+        self.net = mx.sym.Activation(self.net, name='relu2', act_type='relu')
         self.net = mx.sym.SoftmaxOutput(self.net, name='softmax')
 
     def __repr__(self):
@@ -267,7 +270,7 @@ def main():
     corpus_files = udhr2.fileids()
     
     # Build model
-    model = Model()
+    model = Model(vocab_size=500)
 
     # Populate lang_id <-> int dictionary
     for corpus_file in corpus_files:
