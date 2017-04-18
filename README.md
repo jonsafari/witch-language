@@ -8,10 +8,9 @@ Install NLTK:
 pip3 install --user nltk
 ```
 
-Download the UDHR2 dataset within Python:
-```Python
-import nltk
-nltk.download('udhr2')
+Download the UDHR2 dataset:
+```Bash
+echo "import nltk; nltk.download('udhr2')" | python3
 ```
 
 ## Usage
